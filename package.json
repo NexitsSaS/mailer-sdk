@@ -1,0 +1,30 @@
+{
+  "name": "@nexits/mailer-sdk",
+  "private": false,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint",
+    "format": "prettier --check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.21.4"
+  },
+  "devDependencies": {
+    "@nexits/eslint-config": "workspace:*",
+    "@nexits/prettier-config": "workspace:*",
+    "@nexits/tsconfig": "workspace:*",
+    "typescript": "^5.3.3"
+  },
+  "prettier": "@nexits/prettier-config"
+}
