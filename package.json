@@ -21,9 +21,6 @@
     "zod": "^3.21.4"
   },
   "devDependencies": {
-    "@nexits/eslint-config": "workspace:*",
-    "@nexits/prettier-config": "workspace:*",
-    "@nexits/tsconfig": "workspace:*",
     "typescript": "^5.3.3"
   },
   "prettier": "@nexits/prettier-config"
