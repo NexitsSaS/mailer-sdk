@@ -85,10 +85,8 @@ export class Raven {
       throw error;
     }
 
-    // Set base URL from options or use default
     this.baseUrl = options.baseUrl || DEFAULT_BASE_URL;
     
-    // Set timeout from options or use default (10 seconds)
     this.timeout = options.timeout || 10000;
 
     // Initialize request headers
@@ -102,6 +100,7 @@ export class Raven {
     // Initialize service clients
     this.emails = new Emails(this);
   }
+  
   /**
    * Makes an API request and handles the response
    * 
