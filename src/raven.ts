@@ -7,6 +7,7 @@ import type {
 import type { ErrorResponse } from './common/types/error.types';
 import { Emails } from "./emails/emails";
 import { version } from "../package.json";
+import { z } from 'zod';
 
 
 /**
@@ -14,6 +15,17 @@ import { version } from "../package.json";
  */
 const DEFAULT_BASE_URL = "http://localhost:3000";
 
+/**
+ * Validation schema for API key
+ */
+const apiKeySchema = z.string()
+  .min(1, { message: "API key cannot be empty" })
+  .refine((key: string)  => key.startsWith('rk_'), {
+    message: "API key must start with 'rk_'"
+  })
+  .refine((key: string)  => key.length >= 10, {
+    message: "API key must be at least 10 characters long"
+  });
 
 /**
  * Configuration options for the Raven client
@@ -28,6 +40,12 @@ export type RavenOptions = {
    * Default headers to include with every request
    */
   defaultHeaders?: Record<string, string>;
+
+  /**
+   * Request timeout in milliseconds
+   */
+timeout?: number;
+
 };
 
 
@@ -37,6 +55,7 @@ export type RavenOptions = {
 export class Raven {
   private readonly headers: Headers;
   private readonly baseUrl: string;
+  private readonly timeout: number;
 
   
   /**
@@ -50,26 +69,27 @@ export class Raven {
    * @param key - API key for authentication
    * @param options - Configuration options
    */
+
   constructor(
-    readonly key?: string,
+    readonly key: string,
     options: RavenOptions = {}
   ) {
-    // Try to get API key from environment if not provided
-    if (!key && typeof process !== "undefined" && process.env) {
-      this.key = process.env.RAVEN_API_KEY;
+    try {
+      apiKeySchema.parse(key);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new Error(
+          `Invalid API key:\n${error.errors.map((e) => `• ${e.message}`).join("\n")}`
+        );
+      }
+      throw error;
     }
 
-    // Throw error if API key still not available
-    if (!this.key) {
-      throw new Error(
-        "Missing API key. Pass it to the constructor: new Raven('rk_...')"
-      );
-    }
-
-    // Set base URL from options or environment
-    this.baseUrl = options.baseUrl || 
-      (typeof process !== "undefined" && process.env && process.env.RAVEN_BASE_URL) ||
-      DEFAULT_BASE_URL;
+    // Set base URL from options or use default
+    this.baseUrl = options.baseUrl || DEFAULT_BASE_URL;
+    
+    // Set timeout from options or use default (10 seconds)
+    this.timeout = options.timeout || 10000;
 
     // Initialize request headers
     this.headers = new Headers({
@@ -82,7 +102,6 @@ export class Raven {
     // Initialize service clients
     this.emails = new Emails(this);
   }
-
   /**
    * Makes an API request and handles the response
    * 
@@ -90,15 +109,21 @@ export class Raven {
    * @param options - Fetch request options
    * @returns Object containing data or error
    */
-  async fetchRequest<T>(
+  private async fetchRequest<T>(
     path: string,
     options: RequestInit = {},
   ): Promise<{ data: T | null; error: ErrorResponse | null }> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      
       const response = await fetch(`${this.baseUrl}${path}`, {
         ...options,
         headers: this.headers,
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const raw = await response.text();
@@ -118,6 +143,17 @@ export class Raven {
       const data = (await response.json()) as T;
       return { data, error: null };
     } catch (err) {
+      // Handle timeout errors
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return {
+          data: null,
+          error: {
+            name: 'request_timeout',
+            message: `Request timed out after ${this.timeout}ms`,
+          },
+        };
+      }
+      
       return {
         data: null,
         error: {
@@ -127,6 +163,7 @@ export class Raven {
       };
     }
   }
+
 
   /**
    * Make a GET request to the API

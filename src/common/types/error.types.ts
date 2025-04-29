@@ -15,6 +15,7 @@ export const RAVEN_ERROR_CODES = {
     not_found: 404,
     method_not_allowed: 405,
     application_error: 500,
+    request_timeout: 408, 
     internal_server_error: 500,
   } as const;
   
