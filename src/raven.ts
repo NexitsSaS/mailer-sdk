@@ -49,7 +49,7 @@ timeout?: number;
 };
 
 
-/**
+/***
  * Raven SDK client for interacting with the Raven API
  */
 export class Raven {
