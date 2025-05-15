@@ -1,20 +1,19 @@
-import { StandardError } from "../../common/types/error.types";
+import type { StandardError } from "../../common/types/error.types";
 
 /**
  * Success response for email creation
  */
-export type CreateEmailResponseSuccess = {
+export interface CreateEmailResponseSuccess {
   /**
    * Unique identifier for the email
    */
   id: string;
-  
+
   /**
    * Current status of the email
    */
-  status: 'sent' | 'queued' | 'scheduled' | 'failed';
-};
-
+  status: "sent" | "queued" | "scheduled" | "failed";
+}
 
 /**
  * Complete response for creating an email

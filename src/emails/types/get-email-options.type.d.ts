@@ -1,4 +1,4 @@
-import { StandardError } from "../../common/types/error.types";
+import type { StandardError } from "../../common/types/error.types";
 
 export interface GetEmailResponseSuccess {
   id: string;

@@ -1,3 +1,3 @@
 export interface PostOptions {
-  query?: { [key: string]: unknown };
+  query?: Record<string, unknown>;
 }
