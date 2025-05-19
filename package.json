@@ -18,13 +18,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@react-email/render": "^1.0.5",
     "zod": "^3.21.4"
   },
   "devDependencies": {
     "@types/html-to-text": "^9.0.4",
     "@types/react": "19.1.2",
     "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "@react-email/render": "^1.0.5"
   },
   "prettier": "@nexits/prettier-config"
 }
