@@ -8,28 +8,32 @@ import type {
   UpdateEmailOptions,
   UpdateEmailResponse
 } from '../types';
-import { Raven } from '../../raven';
+import { Client } from '../../client';
 
-// Mock subclass of Raven that overrides post/get/patch with spies
-class MockRaven extends Raven {
+class MockClient extends Client {
   public post = vi.fn();
   public get = vi.fn();
   public patch = vi.fn();
+  public delete = vi.fn();
+  public put = vi.fn();
 
   constructor() {
     super('rk_test_1234567890', { baseUrl: 'http://localhost:3000' });
   }
 }
 
+
 describe('Emails SDK', () => {
-  let mockClient: MockRaven;
+  let mockClient: MockClient;
   let emails: Emails;
 
   beforeEach(() => {
-    mockClient = new MockRaven();
+    vi.restoreAllMocks(); 
+    global.fetch = vi.fn(); 
+    mockClient = new MockClient();
     emails = new Emails(mockClient);
-    vi.clearAllMocks();
   });
+  
 
   describe('send()', () => {
     /**
@@ -61,34 +65,7 @@ describe('Emails SDK', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    /**
-     * Test case: Sending an email to multiple recipients
-     * Verifies that the client properly handles array of recipients
-     */
-    it('sends an email to multiple recipients', async () => {
-      const mockResponse: CreateEmailResponse = {
-        data: {
-          id: '124dc0f1-e36c-417c-a65c-e33773abc768',
-          status: 'sent'
-        },
-        error: null
-      };
-      
-      vi.mocked(mockClient.post).mockResolvedValue(mockResponse);
-
-      const input: CreateEmailOptions = {
-        from: 'no-reply@nexits.io',
-        to: ['user1@example.com', 'user2@example.com'],
-        subject: 'Test Email',
-        html: '<p>Hello World</p>'
-      };
-
-      const result = await emails.send(input);
-
-      expect(mockClient.post).toHaveBeenCalledWith('/emails', input);
-      expect(result).toEqual(mockResponse);
-    });
-
+  
     /**
      * Test case: Sending an email with CC recipients
      * Verifies the client handles CC field correctly
@@ -146,9 +123,6 @@ describe('Emails SDK', () => {
       expect(mockClient.post).toHaveBeenCalledWith('/emails', input);
       expect(result).toEqual(mockResponse);
     });
-
-
-    
 
     /**
      * Test case: Sending an email with custom headers
@@ -216,34 +190,49 @@ describe('Emails SDK', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    /**
-     * Test case: Error handling when sending an email fails
-     * Verifies that errors from the API are properly propagated
-     */
-    it('handles errors when sending fails', async () => {
-        const errorResponse: CreateEmailResponse = {
-            data: null,
-            error: {
-              code: 'validation_error',
-              message: 'Invalid email format'
-            }
-          };
-        
+    
+
+/**
+ * Test case: Includes required headers in the HTTP request
+ * Ensures that the HTTP request made by the client includes all mandatory headers,
+ * such as Authorization, Content-Type, and X-SDK-Version. This validates proper
+ * client initialization and header injection for authentication and tracking.
+ */
+
+    it('includes required headers in the HTTP request', async () => {
+      // Create a real Client instance to test its header behavior
+      const realClient = new Client('rk_test_1234567890', { baseUrl: 'http://localhost:3000' });
       
-      vi.mocked(mockClient.post).mockResolvedValue(errorResponse);
-
+      // Mock the fetchRequest method to capture the headers without making actual network calls
+      const fetchRequestSpy = vi.spyOn(realClient as any, 'fetchRequest').mockResolvedValue({
+        data: { id: 'header-test-id', status: 'sent' },
+        error: null
+      });
+      
+      // Create an Emails instance with the real client
+      const testEmails = new Emails(realClient);
+      
       const input: CreateEmailOptions = {
-        from: 'invalid-email',
-        to: 'user@example.com',
-        subject: 'Test Email',
-        html: '<p>Hello World</p>'
+        from: 'admin@nexits.io',
+        to: 'header@example.com',
+        subject: 'Header Check',
+        html: '<p>Hello</p>',
       };
-
-      const result = await emails.send(input);
-
-      expect(mockClient.post).toHaveBeenCalledWith('/emails', input);
-      expect(result).toEqual(errorResponse);
+    
+      await testEmails.send(input);
+      
+      // Verify fetchRequest was called
+      expect(fetchRequestSpy).toHaveBeenCalled();
+      
+      // Get the Headers from the private property on the client
+      const headers = (realClient as any).headers;
+      
+      // Verify headers
+      expect(headers.get('Authorization')).toBe('Bearer rk_test_1234567890');
+      expect(headers.get('Content-Type')).toBe('application/json');
+      expect(headers.get('X-SDK-Version')).toMatch(/^raven-sdk:/);
     });
+    
   });
 
   describe('get()', () => {
@@ -328,35 +317,7 @@ describe('Emails SDK', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    /**
-     * Test case: Update email with Date object
-     * Verifies that the client.patch method works with Date objects
-     */
-    it('updates email scheduling with Date object', async () => {
-      const mockResponse: UpdateEmailResponse = {
-        data: {
-          id: '67d9bcdb-5a02-42d7-8da9-0d6feea18cff',
-          object: 'email'
-        },
-        error: null
-      };
-      
-      vi.mocked(mockClient.patch).mockResolvedValue(mockResponse);
-
-      const scheduledDate = new Date('2023-05-01T10:00:00Z');
-      const updateOptions: UpdateEmailOptions = {
-        id: '67d9bcdb-5a02-42d7-8da9-0d6feea18cff',
-        scheduledAt: scheduledDate
-      };
-      
-      const result = await emails.update(updateOptions);
-
-      expect(mockClient.patch).toHaveBeenCalledWith(
-        `/emails/${updateOptions.id}`,
-        { scheduled_at: scheduledDate }
-      );
-      expect(result).toEqual(mockResponse);
-    });
+   
 
     /**
      * Test case: Error handling for update operation

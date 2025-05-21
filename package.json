@@ -25,10 +25,15 @@
     "zod": "^3.21.4"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
     "vite": "^6.3.4",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.1.2"
+    "vitest": "^3.1.2",
+    "@types/html-to-text": "^9.0.4",
+    "@types/react": "19.1.2",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "@react-email/render": "^1.0.5"
   },
   "prettier": "@nexits/prettier-config"
 }

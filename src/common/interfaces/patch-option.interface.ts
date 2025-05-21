@@ -1,3 +1,3 @@
 export interface PatchOptions {
-  query?: { [key: string]: unknown };
+  query?: Record<string, unknown>;
 }
