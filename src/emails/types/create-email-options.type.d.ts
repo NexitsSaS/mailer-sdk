@@ -32,7 +32,7 @@ export interface CreateEmailOptions {
   /**
    * Reply-to address
    */
-  replyTo?: string;
+  replyTo?: string | string[];
 
   /**
    * Email CC recipients
