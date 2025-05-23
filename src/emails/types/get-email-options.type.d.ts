@@ -10,6 +10,9 @@ export interface GetEmailResponseSuccess {
   createdAt: string;
   status: string;
   scheduledAt?: string;
+  cc?: string[] | null;        
+  bcc?: string[] | null;       
+  replyTo?: string[] | null;  
 }
 
 export interface GetEmailResponse {
