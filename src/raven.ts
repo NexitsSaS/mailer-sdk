@@ -3,10 +3,6 @@ import { Client } from "./client";
 import { Emails } from "./emails/emails";
 
 
-export interface RavenOptions extends ClientOptions {
-  // Additional Raven-specific options can be added here
-}
-
 /**
  * Main Raven SDK client for interacting with the Raven API
  * Acts as the entry point for all services
@@ -27,7 +23,7 @@ export class Raven {
    * @param key - API key for authentication
    * @param options - Configuration options
    */
-  constructor(readonly key: string, options: RavenOptions = {}) {
+  constructor(readonly key: string, options: ClientOptions = {}) {
     // Initialize the underlying HTTP client
     this.client = new Client(key, options);
     
