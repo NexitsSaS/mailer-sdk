@@ -1,7 +1,8 @@
+import React from "react";
 import { renderAsync } from "@react-email/render";
-import { normalizeError } from "../common/utils/normalizeError";
-import type { ErrorResponse } from "../common/types/error.types";
+
 import type { Client } from "../client";
+import type { ErrorResponse } from "../common/types/error.types";
 import type {
   CancelEmailResponse,
   CreateEmailOptions,
@@ -10,10 +11,11 @@ import type {
   UpdateEmailOptions,
   UpdateEmailResponse,
 } from "./types";
+import { normalizeError } from "../common/utils/normalizeError";
 import {
   createEmailSchema,
-  updateEmailSchema,
   listEmailOptionsSchema,
+  updateEmailSchema,
 } from "./validators";
 
 /**
@@ -25,7 +27,7 @@ export class Emails {
    *
    * @param client - API client for making requests
    */
-  
+
   constructor(private readonly client: Client) {}
 
   /**
@@ -40,7 +42,7 @@ export class Emails {
   }> {
     try {
       createEmailSchema.parse(options);
-      
+
       const payload = { ...options };
 
       if (options.react) {
@@ -61,10 +63,122 @@ export class Emails {
       }
 
       return this.client.post<CreateEmailResponse>("/emails", payload);
-    }catch (error) {
+    } catch (error) {
       return {
         data: null,
         error: normalizeError(error),
+      };
+    }
+  }
+
+  /**
+   * Queue a new email via the outbox mechanism
+   *
+   * This method does not send the email immediately.
+   * Instead, it inserts the email into the outbox table,
+   * where it will be picked up by a background worker,
+   * published to SQS, and sent asynchronously.
+   *
+   * @param input - Email payload and metadata for delivery and tracking
+   * @returns Promise resolving to the queued email's idempotency key or an error
+   */
+
+  async sendQueued(input: {
+    payload: {
+      type: "EMAIL";
+      to: string[];
+      cc?: string[];
+      bcc?: string[];
+      subject: string;
+      body?: string;
+      react?: React.ReactElement;
+      from?: string;
+      replyTo?: string;
+      attachments?: {
+        filename: string;
+        content: string;
+        contentType: string;
+      }[];
+    };
+    metadata: {
+      tenantId: number;
+      domainId: number;
+      senderId: string;
+      apiKeyId: number;
+      templateId: number;
+      trackingEnabled: boolean;
+    };
+  }): Promise<{
+    data: { idempotencyKey: string } | null;
+    error: ErrorResponse | null;
+  }> {
+    try {
+      const { payload, metadata } = input;
+
+      let htmlBody = payload.body ?? "";
+
+      if (payload.react) {
+        try {
+          if (!React.isValidElement(payload.react)) {
+            throw new Error("Invalid React element provided to renderAsync");
+          }
+
+          htmlBody = await renderAsync(payload.react);
+          if (htmlBody.length > 100_000) {
+            throw new Error("Rendered HTML body too large");
+          }
+        } catch (error) {
+          console.error("❌ renderAsync failed:", error);
+          return {
+            data: null,
+            error: {
+              name: "application_error",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Template render failed",
+            },
+          };
+        }
+      }
+
+      const response = await this.client.post<{ idempotencyKey: string }>(
+        "/emails/queue",
+        {
+          payload: {
+            type: "EMAIL",
+            to: payload.to,
+            cc: payload.cc,
+            bcc: payload.bcc,
+            subject: payload.subject,
+            htmlBody,
+            from: payload.from,
+            replyTo: payload.replyTo,
+            attachments: payload.attachments,
+          },
+          metadata,
+        },
+      );
+
+      if (!response.data?.idempotencyKey) {
+        console.error("❌ Missing idempotencyKey in response:", response);
+        return {
+          data: null,
+          error: {
+            name: "application_error",
+            message: "No idempotency key returned from queue endpoint",
+          },
+        };
+      }
+
+      return {
+        data: response.data,
+        error: response.error,
+      };
+    } catch (err) {
+      return {
+        data: null,
+        error: normalizeError(err),
       };
     }
   }
@@ -76,7 +190,7 @@ export class Emails {
    * @returns Promise resolving to email details or error
    */
   get(id: string) {
-    if (!id || typeof id !== 'string') {
+    if (!id || typeof id !== "string") {
       return Promise.resolve({
         data: null,
         error: {
@@ -85,20 +199,20 @@ export class Emails {
         },
       });
     }
-    
+
     return this.client.get<GetEmailResponse>(`/emails/${id}`);
   }
 
   /**
    * Update an existing email
-   * 
+   *
    * @param options - Email update options
    * @returns Promise resolving to updated email or error
    */
   update(options: UpdateEmailOptions) {
     try {
       updateEmailSchema.parse(options);
-      
+
       return this.client.patch<UpdateEmailResponse>(`/emails/${options.id}`, {
         scheduled_at: options.scheduledAt,
       });
@@ -112,12 +226,12 @@ export class Emails {
 
   /**
    * Cancel a scheduled email
-   * 
+   *
    * @param id - ID of email to cancel
    * @returns Promise resolving to cancellation result or error
    */
   cancel(id: string) {
-    if (!id || typeof id !== 'string') {
+    if (!id || typeof id !== "string") {
       return Promise.resolve({
         data: null,
         error: {
@@ -126,7 +240,7 @@ export class Emails {
         },
       });
     }
-    
+
     return this.client.post<CancelEmailResponse>(`/emails/${id}/cancel`);
   }
 
@@ -146,7 +260,7 @@ export class Emails {
       if (options) {
         listEmailOptionsSchema.parse(options);
       }
-      
+
       const params = new URLSearchParams();
 
       if (options?.limit) {
